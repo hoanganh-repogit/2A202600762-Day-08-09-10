@@ -1,0 +1,51 @@
+{
+  "generated_at": "2026-06-09T12:06:22.448920",
+  "day08_single_agent": {
+    "total_questions": 15,
+    "avg_confidence": "N/A - Day 08 artifact unavailable",
+    "avg_latency_ms": "N/A - Day 08 artifact unavailable",
+    "abstain_rate": "N/A - Day 08 artifact unavailable",
+    "multi_hop_accuracy": "N/A - Day 08 artifact unavailable"
+  },
+  "day09_multi_agent": {
+    "total_traces": 15,
+    "eval_batch_id": "eval_20260609_120622_413160",
+    "routing_distribution": {
+      "retrieval_worker": "9/15 (60%)",
+      "policy_tool_worker": "6/15 (40%)"
+    },
+    "avg_confidence": 0.871,
+    "avg_latency_ms": 1,
+    "mcp_usage_rate": "6/15 (40%)",
+    "hitl_rate": "1/15 (6%)",
+    "top_sources": [
+      [
+        "sla_p1_2026.txt",
+        6
+      ],
+      [
+        "policy_refund_v4.txt",
+        4
+      ],
+      [
+        "access_control_sop.txt",
+        3
+      ],
+      [
+        "hr_leave_policy.txt",
+        2
+      ],
+      [
+        "it_helpdesk_faq.txt",
+        1
+      ]
+    ]
+  },
+  "analysis": {
+    "routing_visibility": "Day 09 có route_reason cho từng câu → dễ debug hơn Day 08",
+    "latency_delta": "N/A vì repo không có Day 08 baseline; Day 09 avg_latency_ms lấy từ trace.",
+    "accuracy_delta": "N/A vì repo không có Day 08 grading/test baseline; Day 09 source/route public test đạt 15/15.",
+    "debuggability": "Multi-agent: có thể test từng worker độc lập. Single-agent: không thể.",
+    "mcp_benefit": "Day 09 có thể extend capability qua MCP không cần sửa core. Day 08 phải hard-code."
+  }
+}

@@ -20,9 +20,9 @@ Sử dụng:
     # Call a tool
     result = dispatch_tool("search_kb", {"query": "SLA P1", "top_k": 3})
 
-Sprint 3 TODO:
-    - Option Standard: Sử dụng file này as-is (mock class)
-    - Option Advanced: Implement HTTP server với FastAPI hoặc dùng `mcp` library
+Sprint 3 note:
+    - Standard path: in-process mock MCP dispatcher.
+    - Optional bonus path: HTTP/MCP library server.
 
 Chạy thử:
     python mcp_server.py
@@ -136,8 +136,7 @@ def tool_search_kb(query: str, top_k: int = 3) -> dict:
     """
     Tìm kiếm Knowledge Base bằng semantic search.
 
-    TODO Sprint 3: Kết nối với ChromaDB thực.
-    Hiện tại: Delegate sang retrieval worker.
+    Hiện tại delegate sang retrieval worker offline để chạy chắc trong lab.
     """
     try:
         # Tái dùng retrieval logic từ workers/retrieval.py
@@ -145,7 +144,11 @@ def tool_search_kb(query: str, top_k: int = 3) -> dict:
         sys.path.insert(0, os.path.dirname(__file__))
         from workers.retrieval import retrieve_dense
         chunks = retrieve_dense(query, top_k=top_k)
-        sources = list({c["source"] for c in chunks})
+        sources = []
+        for chunk in chunks:
+            source = chunk.get("source")
+            if source and source not in sources:
+                sources.append(source)
         return {
             "chunks": chunks,
             "sources": sources,
@@ -225,6 +228,11 @@ ACCESS_RULES = {
         "emergency_can_bypass": False,
         "note": "Admin access — không có emergency bypass",
     },
+    4: {
+        "required_approvers": ["IT Manager", "CISO"],
+        "emergency_can_bypass": False,
+        "note": "Admin access — không có emergency bypass, cần training security policy",
+    },
 }
 
 
@@ -234,7 +242,7 @@ def tool_check_access_permission(access_level: int, requester_role: str, is_emer
     """
     rule = ACCESS_RULES.get(access_level)
     if not rule:
-        return {"error": f"Access level {access_level} không hợp lệ. Levels: 1, 2, 3."}
+        return {"error": f"Access level {access_level} không hợp lệ. Levels: 1, 2, 3, 4."}
 
     can_grant = True
     notes = []
@@ -375,4 +383,4 @@ if __name__ == "__main__":
     print(f"  Error: {err.get('error')}")
 
     print("\n✅ MCP server test done.")
-    print("\nTODO Sprint 3: Implement HTTP server nếu muốn bonus +2.")
+    print("\nOptional bonus: implement HTTP server nếu muốn +2.")

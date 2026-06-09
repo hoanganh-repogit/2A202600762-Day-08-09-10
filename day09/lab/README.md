@@ -1,8 +1,8 @@
 # Lab Day 09 — Multi-Agent Orchestration
 
-**Môn:** AI in Action (AICB-P1)  
-**Chủ đề:** Supervisor-Worker Pattern · MCP · Trace & Observability  
-**Thời gian:** 4 giờ (4 sprints x 60 phút)  
+**Môn:** AI in Action (AICB-P1)
+**Chủ đề:** Supervisor-Worker Pattern · MCP · Trace & Observability
+**Thời gian:** 4 giờ (4 sprints x 60 phút)
 **Tiếp nối:** Day 08 — RAG Pipeline → Day 09 — Orchestration Layer
 
 ---
@@ -18,6 +18,7 @@ Cùng bài toán **trợ lý nội bộ CS + IT Helpdesk** từ Day 08, nhưng R
 **Nhiệm vụ hôm nay:** Refactor RAG pipeline (Day 08) thành hệ **Supervisor + Workers** rõ vai, dễ trace, dễ mở rộng.
 
 **Câu hỏi hệ thống mới phải xử lý được:**
+
 - "Ticket P1 lúc 2am — escalation xảy ra thế nào và ai nhận thông báo?"
 - "Contractor cần Admin Access để sửa P1 khẩn cấp — quy trình tạm thời là gì?"
 - "Khách hàng Flash Sale yêu cầu hoàn tiền vì sản phẩm lỗi — policy nào áp dụng?"
@@ -26,12 +27,12 @@ Cùng bài toán **trợ lý nội bộ CS + IT Helpdesk** từ Day 08, nhưng R
 
 ## Mục tiêu học tập
 
-| Mục tiêu | Sprint liên quan |
-|-----------|----------------|
-| Refactor pipeline sang Supervisor-Worker graph | Sprint 1 |
-| Implement 2–3 workers với contract rõ ràng | Sprint 2 |
-| Nối 1 external capability qua MCP (thật hoặc mock) | Sprint 3 |
-| Trace toàn bộ routing flow + so sánh single vs multi | Sprint 4 |
+| Mục tiêu                                              | Sprint liên quan |
+| ------------------------------------------------------- | ----------------- |
+| Refactor pipeline sang Supervisor-Worker graph          | Sprint 1          |
+| Implement 2–3 workers với contract rõ ràng          | Sprint 2          |
+| Nối 1 external capability qua MCP (thật hoặc mock)   | Sprint 3          |
+| Trace toàn bộ routing flow + so sánh single vs multi | Sprint 4          |
 
 ---
 
@@ -84,17 +85,20 @@ lab/
 ## Setup
 
 ### 1. Cài dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
 ### 2. Tạo file .env
+
 ```bash
 cp .env.example .env
 # Điền OPENAI_API_KEY hoặc GOOGLE_API_KEY
 ```
 
 ### 3. Build index từ Day 08 (nếu chưa có)
+
 ```bash
 # Copy ChromaDB index từ Day 08, hoặc chạy lại:
 python -c "
@@ -115,6 +119,7 @@ print('Index ready.')
 ```
 
 ### 4. Kiểm tra setup
+
 ```bash
 python graph.py  # Chạy 1 test query cơ bản
 ```
@@ -130,6 +135,7 @@ python graph.py  # Chạy 1 test query cơ bản
 **Bối cảnh:** RAG pipeline Day 08 là một "monolith" — retrieve → generate trong một hàm. Sprint này tách nó thành graph với Supervisor điều phối.
 
 **Việc phải làm:**
+
 1. Implement `AgentState` — shared state của toàn graph
 2. Implement `supervisor_node()` — đọc task, quyết định route
 3. Implement `route_decision()` — routing logic dựa vào task type và risk flag
@@ -137,12 +143,14 @@ python graph.py  # Chạy 1 test query cơ bản
 5. Chạy `graph.invoke()` với 2 test queries khác nhau
 
 **Definition of Done:**
-- [ ] `python graph.py` chạy không lỗi
-- [ ] Supervisor route đúng cho ít nhất 2 loại câu hỏi khác nhau (retrieval vs policy)
-- [ ] Mỗi bước routing được log với `route_reason`
-- [ ] State object có: `task`, `route_reason`, `history`, `risk_high`
+
+- [X] `python graph.py` chạy không lỗi
+- [X] Supervisor route đúng cho ít nhất 2 loại câu hỏi khác nhau (retrieval vs policy)
+- [X] Mỗi bước routing được log với `route_reason`
+- [X] State object có: `task`, `route_reason`, `history`, `risk_high`
 
 **Gợi ý routing logic:**
+
 ```
 task chứa "hoàn tiền", "refund", "policy" → policy_tool_worker
 task chứa "cấp quyền", "access", "emergency" → policy_tool_worker  
@@ -160,20 +168,24 @@ còn lại → retrieval_worker
 **Việc phải làm:**
 
 **Retrieval Worker** (`workers/retrieval.py`):
+
 1. Implement `run(state)` — nhận query từ state, gọi ChromaDB, trả về chunks
 2. Ghi `retrieved_chunks` và `worker_io_log` vào state
 
 **Policy Tool Worker** (`workers/policy_tool.py`):
+
 1. Implement `run(state)` — kiểm tra policy dựa trên retrieved chunks
 2. Phân tích exception/edge case nếu có (e.g., Flash Sale, Digital Product)
 3. Ghi `policy_result` và `worker_io_log` vào state
 
 **Synthesis Worker** (`workers/synthesis.py`):
+
 1. Implement `run(state)` — tổng hợp answer từ chunks + policy_result
 2. Gọi LLM với grounded prompt (chỉ dùng evidence từ state)
 3. Output có `answer`, `sources`, `confidence`
 
 **Kiểm tra từng worker độc lập:**
+
 ```python
 # Test retrieval worker độc lập
 from workers.retrieval import run as retrieval_run
@@ -183,10 +195,11 @@ print(result["retrieved_chunks"])
 ```
 
 **Definition of Done:**
-- [ ] Mỗi worker test độc lập được (không cần graph)
-- [ ] Input/output của từng worker khớp với `contracts/worker_contracts.yaml`
-- [ ] Policy worker xử lý đúng ít nhất 1 exception case (Flash Sale hoặc digital product)
-- [ ] Synthesis worker trả về answer có citation `[1]`, không hallucinate
+
+- [X] Mỗi worker test độc lập được (không cần graph)
+- [X] Input/output của từng worker khớp với `contracts/worker_contracts.yaml`
+- [X] Policy worker xử lý đúng ít nhất 1 exception case (Flash Sale hoặc digital product)
+- [X] Synthesis worker trả về answer có citation `[1]`, không hallucinate
 
 ---
 
@@ -197,6 +210,7 @@ print(result["retrieved_chunks"])
 **Bối cảnh:** Tool worker cần gọi external capability. Thay vì hard-code từng API, dùng MCP interface.
 
 **Việc phải làm:**
+
 1. Implement mock MCP Server với ít nhất **2 tools**:
    - `search_kb(query, top_k)` — search Knowledge Base (dùng ChromaDB)
    - `get_ticket_info(ticket_id)` — tra cứu thông tin ticket (mock data)
@@ -204,6 +218,7 @@ print(result["retrieved_chunks"])
 3. Ghi lại `mcp_tool_called` và `mcp_result` vào trace
 
 **Format MCP tool call (JSON):**
+
 ```json
 {
   "tool": "search_kb",
@@ -215,16 +230,17 @@ print(result["retrieved_chunks"])
 
 **Chọn 1 trong 2 mức độ:**
 
-| Mức | Làm gì | Điểm |
-|-----|--------|------|
-| **Standard** | Mock MCP class trong Python, gọi qua function call | Full credit |
-| **Advanced** | MCP server thật dùng `mcp` library hoặc HTTP server | Bonus +2 |
+| Mức               | Làm gì                                                 | Điểm      |
+| ------------------ | -------------------------------------------------------- | ----------- |
+| **Standard** | Mock MCP class trong Python, gọi qua function call      | Full credit |
+| **Advanced** | MCP server thật dùng `mcp` library hoặc HTTP server | Bonus +2    |
 
 **Definition of Done:**
-- [ ] `mcp_server.py` có ít nhất 2 tools implement
-- [ ] Policy worker gọi MCP client, không direct call ChromaDB
-- [ ] Trace ghi được `mcp_tool_called` cho từng lần gọi
-- [ ] Supervisor ghi log "chọn MCP vs không chọn MCP" vào `route_reason`
+
+- [X] `mcp_server.py` có ít nhất 2 tools implement
+- [X] Policy worker gọi MCP client, không direct call ChromaDB
+- [X] Trace ghi được `mcp_tool_called` cho từng lần gọi
+- [X] Supervisor ghi log "chọn MCP vs không chọn MCP" vào `route_reason`
 
 ---
 
@@ -233,6 +249,7 @@ print(result["retrieved_chunks"])
 **File:** `eval_trace.py`
 
 **Việc phải làm:**
+
 1. Chạy pipeline với 15 test questions, lưu trace vào `artifacts/traces/`
 2. Implement `analyze_trace()` — đọc trace, tính metrics
 3. Implement `compare_single_vs_multi()` — so sánh với Day 08 baseline
@@ -240,6 +257,7 @@ print(result["retrieved_chunks"])
 5. Viết báo cáo nhóm và báo cáo cá nhân
 
 **Trace format bắt buộc:**
+
 ```json
 {
   "run_id": "run_2026-04-13_1432",
@@ -258,41 +276,42 @@ print(result["retrieved_chunks"])
 ```
 
 **Definition of Done:**
-- [ ] `python eval_trace.py` chạy end-to-end với 15 test questions
-- [ ] Trace file có đủ các fields bắt buộc
-- [ ] `docs/routing_decisions.md` điền xong với ít nhất 3 quyết định routing thực tế
-- [ ] `docs/single_vs_multi_comparison.md` điền xong với ít nhất 2 metrics
-- [ ] Mỗi người có file báo cáo cá nhân trong `reports/individual/`
-- [ ] Nhóm có `reports/group_report.md` hoàn chỉnh
+
+- [X] `python eval_trace.py` chạy end-to-end với 15 test questions
+- [X] Trace file có đủ các fields bắt buộc
+- [X] `docs/routing_decisions.md` điền xong với ít nhất 3 quyết định routing thực tế
+- [X] `docs/single_vs_multi_comparison.md` điền xong với ít nhất 2 metrics
+- [X] Mỗi người có file báo cáo cá nhân trong `reports/individual/`
+- [X] Nhóm có `reports/group_report.md` hoàn chỉnh
 
 ---
 
 ## Deliverables (Nộp bài)
 
-| Item | File | Owner |
-|------|------|-------|
-| Orchestrator | `graph.py` | Supervisor Owner |
-| Workers | `workers/retrieval.py`, `workers/policy_tool.py`, `workers/synthesis.py` | Worker Owners |
-| MCP Server | `mcp_server.py` | MCP Owner |
-| Worker contracts | `contracts/worker_contracts.yaml` | Worker Owners |
-| Trace + eval | `eval_trace.py`, `artifacts/traces/` | Trace Owner |
-| System architecture | `docs/system_architecture.md` | Documentation Owner |
-| Routing decisions | `docs/routing_decisions.md` | Documentation Owner |
-| Single vs Multi comparison | `docs/single_vs_multi_comparison.md` | Documentation Owner |
-| Grading run log | `artifacts/grading_run.jsonl` | Trace Owner |
-| Báo cáo nhóm | `reports/group_report.md` | Documentation Owner |
-| Báo cáo cá nhân | `reports/individual/[ten].md` | Từng người |
+| Item                       | File                                                                           | Owner               |
+| -------------------------- | ------------------------------------------------------------------------------ | ------------------- |
+| Orchestrator               | `graph.py`                                                                   | Supervisor Owner    |
+| Workers                    | `workers/retrieval.py`, `workers/policy_tool.py`, `workers/synthesis.py` | Worker Owners       |
+| MCP Server                 | `mcp_server.py`                                                              | MCP Owner           |
+| Worker contracts           | `contracts/worker_contracts.yaml`                                            | Worker Owners       |
+| Trace + eval               | `eval_trace.py`, `artifacts/traces/`                                       | Trace Owner         |
+| System architecture        | `docs/system_architecture.md`                                                | Documentation Owner |
+| Routing decisions          | `docs/routing_decisions.md`                                                  | Documentation Owner |
+| Single vs Multi comparison | `docs/single_vs_multi_comparison.md`                                         | Documentation Owner |
+| Grading run log            | `artifacts/grading_run.jsonl`                                                | Trace Owner         |
+| Báo cáo nhóm            | `reports/group_report.md`                                                    | Documentation Owner |
+| Báo cáo cá nhân        | `reports/individual/[ten].md`                                                | Từng người       |
 
 ---
 
 ## Phân vai (Giao ngay phút đầu)
 
-| Vai trò | Trách nhiệm chính | Sprint lead |
-|---------|------------------|------------|
-| **Supervisor Owner** | graph.py, routing logic, state management | 1 |
-| **Worker Owner** | retrieval.py, policy_tool.py, synthesis.py, contracts | 2 |
-| **MCP Owner** | mcp_server.py, MCP integration trong policy_tool | 3 |
-| **Trace & Docs Owner** | eval_trace.py, 3 doc templates, group_report | 4 |
+| Vai trò                     | Trách nhiệm chính                                  | Sprint lead |
+| ---------------------------- | ----------------------------------------------------- | ----------- |
+| **Supervisor Owner**   | graph.py, routing logic, state management             | 1           |
+| **Worker Owner**       | retrieval.py, policy_tool.py, synthesis.py, contracts | 2           |
+| **MCP Owner**          | mcp_server.py, MCP integration trong policy_tool      | 3           |
+| **Trace & Docs Owner** | eval_trace.py, 3 doc templates, group_report          | 4           |
 
 > Một người có thể giữ nhiều vai nếu nhóm < 4 người. Mỗi vai phải có **ít nhất 1 người** khai báo và chứng minh được.
 

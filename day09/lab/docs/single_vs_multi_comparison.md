@@ -1,31 +1,24 @@
 # Single Agent vs Multi-Agent Comparison — Lab Day 09
 
-**Nhóm:** ___________  
-**Ngày:** ___________
+**Nhóm:** Ngũ Hổ Tướng  
+**Ngày:** 09/06/2026  
+**Trace batch Day 09:** `eval_20260609_114716_162914`
 
-> **Hướng dẫn:** So sánh Day 08 (single-agent RAG) với Day 09 (supervisor-worker).
-> Phải có **số liệu thực tế** từ trace — không ghi ước đoán.
-> Chạy cùng test questions cho cả hai nếu có thể.
+> Không có artifact Day 08 trong repo hiện tại, nên các ô Day 08 được ghi `N/A` thay vì bịa số liệu. Phần kết luận dựa trên số liệu thật của Day 09 và khác biệt kiến trúc quan sát được từ trace.
 
 ---
 
 ## 1. Metrics Comparison
 
-> Điền vào bảng sau. Lấy số liệu từ:
-> - Day 08: chạy `python eval.py` từ Day 08 lab
-> - Day 09: chạy `python eval_trace.py` từ lab này
-
 | Metric | Day 08 (Single Agent) | Day 09 (Multi-Agent) | Delta | Ghi chú |
-|--------|----------------------|---------------------|-------|---------|
-| Avg confidence | ___ | ___ | ___ | |
-| Avg latency (ms) | ___ | ___ | ___ | |
-| Abstain rate (%) | ___ | ___ | ___ | % câu trả về "không đủ info" |
-| Multi-hop accuracy | ___ | ___ | ___ | % câu multi-hop trả lời đúng |
-| Routing visibility | ✗ Không có | ✓ Có route_reason | N/A | |
-| Debug time (estimate) | ___ phút | ___ phút | ___ | Thời gian tìm ra 1 bug |
-| ___________________ | ___ | ___ | ___ | |
-
-> **Lưu ý:** Nếu không có Day 08 kết quả thực tế, ghi "N/A" và giải thích.
+|--------|------------------------|-----------------------|-------|---------|
+| Route accuracy | N/A | 15/15 = 100% | N/A | So với `expected_route` trong `test_questions.json` |
+| Source coverage | N/A | 15/15 = 100% | N/A | Expected sources đều là subset của `retrieved_sources` |
+| Avg confidence | N/A | 0.871 | N/A | Từ `artifacts/eval_report.json` |
+| Avg latency | N/A | 1 ms | N/A | Offline retrieval + deterministic synthesis |
+| Abstain/HITL rate | N/A | 1/15 = 6% | N/A | q09 `ERR-403-AUTH` |
+| MCP usage rate | N/A | 6/15 = 40% | N/A | Policy/access/refund decision routes |
+| Routing visibility | Không có trong kiến trúc single-agent | Có `route_reason`, `workers_called`, `worker_io_logs` | Có lợi cho debug | Bằng chứng trực tiếp trong trace JSON |
 
 ---
 
@@ -35,114 +28,98 @@
 
 | Nhận xét | Day 08 | Day 09 |
 |---------|--------|--------|
-| Accuracy | ___ | ___ |
-| Latency | ___ | ___ |
-| Observation | ___________________ | ___________________ |
+| Accuracy/source coverage | N/A | 9/9 retrieval-style câu route/source đúng |
+| Latency | N/A | Khoảng 0-1 ms/câu retrieval |
+| Observation | N/A | Retrieval offline trả source sạch: q01 `sla_p1_2026.txt`, q05 `hr_leave_policy.txt`, q04 `it_helpdesk_faq.txt` |
 
-**Kết luận:** Multi-agent có cải thiện không? Tại sao có/không?
-
-_________________
+**Kết luận:** Với KB nhỏ, multi-agent không làm chậm đáng kể vì supervisor và retrieval đều rule-based. Lợi ích chính là trace rõ worker nào chịu trách nhiệm.
 
 ### 2.2 Câu hỏi multi-hop (cross-document)
 
 | Nhận xét | Day 08 | Day 09 |
 |---------|--------|--------|
-| Accuracy | ___ | ___ |
-| Routing visible? | ✗ | ✓ |
-| Observation | ___________________ | ___________________ |
+| Accuracy/source coverage | N/A | q13 và q15 đều retrieve đủ `sla_p1_2026.txt` + `access_control_sop.txt` |
+| Routing visible? | Không có trong single-agent baseline | Có |
+| Observation | N/A | q15 gọi `search_kb`, `check_access_permission`, `get_ticket_info` rồi synthesis trả cả hai quy trình |
 
-**Kết luận:**
-
-_________________
+**Kết luận:** Multi-agent hữu ích nhất ở multi-hop vì policy worker có thể gọi MCP để kiểm tra access rule, trong khi retrieval worker vẫn đảm bảo source cite sạch.
 
 ### 2.3 Câu hỏi cần abstain
 
 | Nhận xét | Day 08 | Day 09 |
 |---------|--------|--------|
-| Abstain rate | ___ | ___ |
-| Hallucination cases | ___ | ___ |
-| Observation | ___________________ | ___________________ |
+| Abstain rate | N/A | 1/15 |
+| Hallucination cases | N/A | 0 quan sát được trên q09 |
+| Observation | N/A | q09 không có chunks, confidence 0.1, answer nói không đủ thông tin |
 
-**Kết luận:**
-
-_________________
+**Kết luận:** Deterministic synthesis fallback giúp chống hallucination tốt hơn cho câu thiếu evidence.
 
 ---
 
 ## 3. Debuggability Analysis
 
-> Khi pipeline trả lời sai, mất bao lâu để tìm ra nguyên nhân?
-
 ### Day 08 — Debug workflow
-```
-Khi answer sai → phải đọc toàn bộ RAG pipeline code → tìm lỗi ở indexing/retrieval/generation
-Không có trace → không biết bắt đầu từ đâu
-Thời gian ước tính: ___ phút
+
+```text
+Không có artifact Day 08 trong repo để đo lại.
+Theo kiến trúc single-agent, khi answer sai phải đọc chung indexing/retrieval/generation.
 ```
 
 ### Day 09 — Debug workflow
-```
-Khi answer sai → đọc trace → xem supervisor_route + route_reason
-  → Nếu route sai → sửa supervisor routing logic
-  → Nếu retrieval sai → test retrieval_worker độc lập
-  → Nếu synthesis sai → test synthesis_worker độc lập
-Thời gian ước tính: ___ phút
+
+```text
+Khi answer sai -> mở trace JSON
+  -> kiểm supervisor_route + route_reason
+  -> kiểm retrieved_sources
+  -> kiểm mcp_tools_used
+  -> kiểm worker_io_logs
+  -> sửa đúng worker liên quan
 ```
 
-**Câu cụ thể nhóm đã debug:** _(Mô tả 1 lần debug thực tế trong lab)_
-
-_________________
+**Câu cụ thể nhóm đã debug:** q09 `ERR-403-AUTH`. Trace cho thấy route ban đầu qua `human_review`, sau đó retrieval trả rỗng. Vì synthesis thấy `retrieved_chunks=[]`, answer abstain và confidence 0.1. Nếu answer bị bịa, lỗi sẽ nằm ở synthesis fallback chứ không phải retrieval.
 
 ---
 
 ## 4. Extensibility Analysis
 
-> Dễ extend thêm capability không?
-
 | Scenario | Day 08 | Day 09 |
 |---------|--------|--------|
-| Thêm 1 tool/API mới | Phải sửa toàn prompt | Thêm MCP tool + route rule |
-| Thêm 1 domain mới | Phải retrain/re-prompt | Thêm 1 worker mới |
-| Thay đổi retrieval strategy | Sửa trực tiếp trong pipeline | Sửa retrieval_worker độc lập |
-| A/B test một phần | Khó — phải clone toàn pipeline | Dễ — swap worker |
+| Thêm 1 tool/API mới | Phải sửa pipeline/prompt chính | Thêm tool vào `mcp_server.py`, policy worker gọi qua `dispatch_tool()` |
+| Thêm 1 domain mới | Dễ phình prompt | Thêm worker hoặc domain boosts trong retrieval |
+| Thay đổi retrieval strategy | Sửa trực tiếp pipeline | Chỉ sửa `workers/retrieval.py` |
+| A/B test một phần | Khó tách | Có thể swap worker riêng |
 
-**Nhận xét:**
-
-_________________
+**Nhận xét:** Trong bài này, chuyển retrieval từ Chroma placeholder sang offline keyword chỉ cần sửa `workers/retrieval.py`; `graph.py` và synthesis không phải đổi contract.
 
 ---
 
 ## 5. Cost & Latency Trade-off
 
-> Multi-agent thường tốn nhiều LLM calls hơn. Nhóm đo được gì?
-
 | Scenario | Day 08 calls | Day 09 calls |
-|---------|-------------|-------------|
-| Simple query | 1 LLM call | ___ LLM calls |
-| Complex query | 1 LLM call | ___ LLM calls |
-| MCP tool call | N/A | ___ |
+|---------|--------------|--------------|
+| Simple query | N/A | 0 LLM calls, 0 MCP calls |
+| Policy query | N/A | 0 LLM calls, 1-3 MCP calls |
+| Complex access + P1 | N/A | 0 LLM calls, 3 MCP calls |
 
-**Nhận xét về cost-benefit:**
-
-_________________
+**Nhận xét về cost-benefit:** Đường chạy chính hiện dùng deterministic synthesis nên chi phí API bằng 0 và latency trung bình 1 ms. Đổi lại, hệ thống phụ thuộc vào rule/template; nếu câu hỏi tự do hơn thì nên bật LLM grounded hoặc dùng classifier tốt hơn.
 
 ---
 
 ## 6. Kết luận
 
-> **Multi-agent tốt hơn single agent ở điểm nào?**
+**Multi-agent tốt hơn single agent ở điểm nào?**
 
-1. ___________________
-2. ___________________
+1. Debug rõ hơn: trace cho biết route, worker sequence, source và MCP tools.
+2. Dễ mở rộng: MCP tool và retrieval/synthesis có thể sửa độc lập.
 
-> **Multi-agent kém hơn hoặc không khác biệt ở điểm nào?**
+**Multi-agent kém hơn hoặc không khác biệt ở điểm nào?**
 
-1. ___________________
+1. Với câu fact đơn giản như q01/q04, multi-agent không làm answer thông minh hơn; chỉ thêm trace và cấu trúc.
 
-> **Khi nào KHÔNG nên dùng multi-agent?**
+**Khi nào không nên dùng multi-agent?**
 
-_________________
+Không nên dùng khi KB rất nhỏ, câu hỏi chỉ là single-doc lookup, và không cần trace/tool/HITL. Khi đó retrieval + synthesis đơn giản đủ dùng.
 
-> **Nếu tiếp tục phát triển hệ thống này, nhóm sẽ thêm gì?**
+**Nếu tiếp tục phát triển hệ thống này, nhóm sẽ thêm gì?**
 
-_________________
+Thêm LLM classifier có fallback rule-based để route linh hoạt hơn, đồng thời giữ `route_reason` dạng structured: `matched_keywords`, `risk_flags`, `selected_route`.

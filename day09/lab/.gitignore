@@ -1,0 +1,15 @@
+# Local environment secrets
+.env
+.env.*
+!.env.example
+
+# Python runtime/cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local vector DB / generated runtime state
+chroma_db/
+
+# Test/cache output
+.pytest_cache/

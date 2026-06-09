@@ -1,162 +1,105 @@
 # Báo Cáo Nhóm — Lab Day 09: Multi-Agent Orchestration
 
-**Tên nhóm:** ___________  
+**Tên nhóm:** Ngũ Hổ Tướng  
 **Thành viên:**
+
 | Tên | Vai trò | Email |
-|-----|---------|-------|
-| ___ | Supervisor Owner | ___ |
-| ___ | Worker Owner | ___ |
-| ___ | MCP Owner | ___ |
-| ___ | Trace & Docs Owner | ___ |
+| ---- | ------------------ | ----- |
+| Hoàng Văn Anh | Supervisor + Worker + MCP + Trace/Docs Owner | N/A |
 
-**Ngày nộp:** ___________  
-**Repo:** ___________  
-**Độ dài khuyến nghị:** 600–1000 từ
+**Ngày nộp:** 09/06/2026  
+**Repo:** `day09/lab`
 
 ---
 
-> **Hướng dẫn nộp group report:**
-> 
-> - File này nộp tại: `reports/group_report.md`
-> - Deadline: Được phép commit **sau 18:00** (xem SCORING.md)
-> - Tập trung vào **quyết định kỹ thuật cấp nhóm** — không trùng lặp với individual reports
-> - Phải có **bằng chứng từ code/trace** — không mô tả chung chung
-> - Mỗi mục phải có ít nhất 1 ví dụ cụ thể từ code hoặc trace thực tế của nhóm
+## 1. Kiến trúc nhóm đã xây dựng
+
+Nhóm xây dựng hệ Supervisor-Worker trong `graph.py`. Supervisor chỉ quyết định luồng, không trả lời domain knowledge. Ba worker chính là `retrieval_worker`, `policy_tool_worker`, và `synthesis_worker`. Sau khi sửa, `graph.py` đã bỏ placeholder và gọi trực tiếp các worker thật qua `retrieval_run`, `policy_tool_run`, `synthesis_run`.
+
+Routing logic cốt lõi dùng rule-based keyword matching để dễ debug: câu factual SLA/IT/HR đi `retrieval_worker`; câu policy exception, refund decision, access control hoặc temporal scoping đi `policy_tool_worker`; câu lỗi không rõ như `ERR-*` trigger HITL placeholder rồi retrieval để kiểm evidence. Mỗi route ghi `route_reason` rõ ràng vào trace.
+
+MCP tools đã tích hợp:
+
+- `search_kb`: policy worker dùng để lấy evidence qua MCP.
+- `check_access_permission`: kiểm Level 2/3/4 access, approvers, emergency override.
+- `get_ticket_info`: lấy mock P1 ticket, notifications và SLA deadline.
+- `create_ticket`: tool mock mở rộng, chưa dùng trong 15 câu test.
 
 ---
 
-## 1. Kiến trúc nhóm đã xây dựng (150–200 từ)
+## 2. Quyết định kỹ thuật quan trọng nhất
 
-> Mô tả ngắn gọn hệ thống nhóm: bao nhiêu workers, routing logic hoạt động thế nào,
-> MCP tools nào được tích hợp. Dùng kết quả từ `docs/system_architecture.md`.
+**Quyết định:** Dùng retrieval offline + deterministic synthesis làm đường chạy chính.
 
-**Hệ thống tổng quan:**
-
-_________________
-
-**Routing logic cốt lõi:**
-> Mô tả logic supervisor dùng để quyết định route (keyword matching, LLM classifier, rule-based, v.v.)
-
-_________________
-
-**MCP tools đã tích hợp:**
-> Liệt kê tools đã implement và 1 ví dụ trace có gọi MCP tool.
-
-- `search_kb`: ___________________
-- `get_ticket_info`: ___________________
-- ___________________: ___________________
-
----
-
-## 2. Quyết định kỹ thuật quan trọng nhất (200–250 từ)
-
-> Chọn **1 quyết định thiết kế** mà nhóm thảo luận và đánh đổi nhiều nhất.
-> Phải có: (a) vấn đề gặp phải, (b) các phương án cân nhắc, (c) lý do chọn phương án đã chọn.
-
-**Quyết định:** ___________________
-
-**Bối cảnh vấn đề:**
-
-_________________
+**Bối cảnh vấn đề:** Skeleton ban đầu có ChromaDB/LLM, nhưng collection trong môi trường hiện tại rỗng và `graph.py` vẫn trả placeholder. Nếu phụ thuộc embedding model hoặc API key, pipeline có thể chạy không ổn định khi chấm. Mục tiêu lab là trace rõ, source đúng, không hallucinate.
 
 **Các phương án đã cân nhắc:**
 
 | Phương án | Ưu điểm | Nhược điểm |
-|-----------|---------|-----------|
-| ___ | ___ | ___ |
-| ___ | ___ | ___ |
+| ------------ | ---------- | -------------- |
+| ChromaDB + LLM | Gần RAG production hơn | Cần index/model/API; dễ fail môi trường |
+| Keyword retrieval + deterministic synthesis | Chạy offline, ổn định, trace dễ kiểm | Kém linh hoạt nếu câu hỏi ngoài template lab |
 
-**Phương án đã chọn và lý do:**
-
-_________________
+**Phương án đã chọn và lý do:** Chọn offline deterministic path. Retrieval đọc trực tiếp 5 file `data/docs/*.txt`, score theo keyword/domain boost và threshold để source sạch. Synthesis chỉ dùng `retrieved_chunks` + `policy_result`, có rule abstain nếu không có evidence.
 
 **Bằng chứng từ trace/code:**
-> Dẫn chứng cụ thể (VD: route_reason trong trace, đoạn code, v.v.)
 
-```
-[NHÓM ĐIỀN VÀO ĐÂY — ví dụ trace hoặc code snippet]
+```text
+Batch eval_20260609_114716_162914:
+- 15/15 câu chạy thành công
+- route_match: 15/15
+- source_coverage: 15/15
+- avg_confidence: 0.871
+- mcp_usage_rate: 6/15
+- q09 ERR-403-AUTH: retrieved_sources=[], confidence=0.1, answer abstain
 ```
 
 ---
 
-## 3. Kết quả grading questions (150–200 từ)
+## 3. Kết quả test questions
 
-> Sau khi chạy pipeline với grading_questions.json (public lúc 17:00):
-> - Nhóm đạt bao nhiêu điểm raw?
-> - Câu nào pipeline xử lý tốt nhất?
-> - Câu nào pipeline fail hoặc gặp khó khăn?
-
-**Tổng điểm raw ước tính:** ___ / 96
+**Tổng điểm nội bộ ước tính trên `test_questions.json`:** route/source đạt 15/15. Đây không phải grading hidden score, nhưng là bằng chứng pipeline xử lý đúng public tests.
 
 **Câu pipeline xử lý tốt nhất:**
-- ID: ___ — Lý do tốt: ___________________
+
+- ID: q15 — Đây là câu multi-hop P1 + Level 2 access. Trace `run_20260609_114716_187197_ef1d5a.json` route `policy_tool_worker`, gọi đủ `search_kb`, `check_access_permission`, `get_ticket_info`, và retrieved sources gồm `sla_p1_2026.txt`, `access_control_sop.txt`.
 
 **Câu pipeline fail hoặc partial:**
-- ID: ___ — Fail ở đâu: ___________________  
-  Root cause: ___________________
 
-**Câu gq07 (abstain):** Nhóm xử lý thế nào?
+- Không có câu public test fail về route/source sau batch cuối. Rủi ro còn lại là một số câu hidden có phrasing khác rule hiện tại.
 
-_________________
+**Câu q09 (abstain):** Hệ thống trigger HITL placeholder, retrieval trả rỗng, synthesis trả “Không đủ thông tin trong tài liệu nội bộ...”, confidence `0.1`. Đây là hành vi mong muốn để tránh hallucination.
 
-**Câu gq09 (multi-hop khó nhất):** Trace ghi được 2 workers không? Kết quả thế nào?
-
-_________________
+**Câu q15 multi-hop:** Trace ghi `policy_tool_worker -> retrieval_worker -> synthesis_worker`, MCP có 3 calls và answer nêu đủ P1 notify/escalation + Level 2 emergency access.
 
 ---
 
-## 4. So sánh Day 08 vs Day 09 — Điều nhóm quan sát được (150–200 từ)
+## 4. So sánh Day 08 vs Day 09
 
-> Dựa vào `docs/single_vs_multi_comparison.md` — trích kết quả thực tế.
+Không có artifact Day 08 trong repo để đo baseline thực tế, nên nhóm không bịa số liệu. Với Day 09, metric rõ nhất là observability: mỗi trace có `supervisor_route`, `route_reason`, `workers_called`, `retrieved_sources`, `mcp_tools_used`, `confidence`.
 
-**Metric thay đổi rõ nhất (có số liệu):**
+Metric thay đổi rõ nhất trong lab hiện tại là khả năng debug. Khi q09 không có thông tin, trace chỉ ra đúng chuỗi: `human_review -> retrieval_worker -> synthesis_worker`, source rỗng và confidence thấp. Với single-agent, phải đọc toàn pipeline để đoán lỗi nằm ở retrieve hay generate.
 
-_________________
-
-**Điều nhóm bất ngờ nhất khi chuyển từ single sang multi-agent:**
-
-_________________
-
-**Trường hợp multi-agent KHÔNG giúp ích hoặc làm chậm hệ thống:**
-
-_________________
+Trường hợp multi-agent không giúp nhiều là câu đơn giản như q01 hoặc q04. Những câu đó retrieval + synthesis là đủ; supervisor-worker chủ yếu thêm trace.
 
 ---
 
-## 5. Phân công và đánh giá nhóm (100–150 từ)
-
-> Đánh giá trung thực về quá trình làm việc nhóm.
+## 5. Phân công và đánh giá nhóm
 
 **Phân công thực tế:**
 
 | Thành viên | Phần đã làm | Sprint |
-|------------|-------------|--------|
-| ___ | ___________________ | ___ |
-| ___ | ___________________ | ___ |
-| ___ | ___________________ | ___ |
-| ___ | ___________________ | ___ |
+| ------------ | ------------------- | ------ |
+| Hoàng Văn Anh | `graph.py`, workers, MCP integration, eval trace, docs/report | 1-4 |
 
-**Điều nhóm làm tốt:**
+**Điều nhóm làm tốt:** Ưu tiên đường chạy thật thay vì giữ skeleton. Sau sửa, output không còn `[PLACEHOLDER]`, trace không bị ghi đè vì `run_id` đã có microsecond + uuid, và policy routes có MCP calls thực tế.
 
-_________________
+**Điều nhóm làm chưa tốt:** Chưa có Day 08 baseline để so sánh số liệu đầy đủ. Synthesis deterministic còn phụ thuộc rule nên cần cải thiện nếu câu hỏi hidden viết khác nhiều.
 
-**Điều nhóm làm chưa tốt hoặc gặp vấn đề về phối hợp:**
-
-_________________
-
-**Nếu làm lại, nhóm sẽ thay đổi gì trong cách tổ chức?**
-
-_________________
+**Nếu làm lại:** Nhóm sẽ viết test nhỏ ngay từ đầu cho route/source match, thay vì phát hiện muộn rằng `graph.py` vẫn gọi placeholder.
 
 ---
 
-## 6. Nếu có thêm 1 ngày, nhóm sẽ làm gì? (50–100 từ)
+## 6. Nếu có thêm 1 ngày
 
-> 1–2 cải tiến cụ thể với lý do có bằng chứng từ trace/scorecard.
-
-_________________
-
----
-
-*File này lưu tại: `reports/group_report.md`*  
-*Commit sau 18:00 được phép theo SCORING.md*
+Nhóm sẽ thêm một lớp LLM classifier có fallback rule-based cho supervisor. Lý do: batch public đã đúng 15/15, nhưng route hiện vẫn phụ thuộc keyword. Classifier có thể giúp câu hidden paraphrase tốt hơn, còn fallback giữ ổn định khi API lỗi.
